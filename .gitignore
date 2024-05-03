@@ -1,0 +1,4 @@
+frontend
+*.ipynb
+.env
+**/__pycache__/
