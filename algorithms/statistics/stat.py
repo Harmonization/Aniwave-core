@@ -1,6 +1,69 @@
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from scipy.stats import entropy
+from functools import partial
+
+def correlation_matrix(hsi):
+    hsi_table = hsi.reshape(hsi.shape[0] * hsi.shape[1], hsi.shape[2]).T # shape = (204, N)
+    return np.around(np.corrcoef(hsi_table), 3).tolist()
+
+def get_stat_value(data, stat_func, mode: str = 'hsi', round_n=3):
+    match mode:
+        case 'hsi':
+            return round(float(stat_func(data)), round_n)
+        case _:
+            return np.around(np.array(stat_func(data, axis=(0, 1))).astype(float), round_n).tolist()
+
+def get_stat_hsi(hsi, name: str, mode: str = 'hsi'):
+    def get_entropy(hsi, axis=None):
+        if axis is None:
+            return entropy(np.unique(hsi, return_counts=True)[1])
+        else:
+            return [entropy(np.unique(hsi[..., band], return_counts=True)[1]) for band in range(hsi.shape[-1])]
+
+    stat_functions = {
+        'max': np.max, 
+        'min': np.min, 
+        'mean': np.mean, 
+        'std': np.std, 
+        'scope': lambda data, axis=None: np.max(data, axis) - np.min(data, axis),
+        'iqr': lambda data, axis=None: np.subtract(*np.percentile(data, [75, 25], axis)),
+        'entropy': get_entropy,
+        'q1': partial(np.percentile, q=25),
+        'median': np.median,
+        'q3': partial(np.percentile, q=75)
+    }
+    
+    return get_stat_value(hsi, stat_functions[name], mode)
+
+def get_regression(hsi, b1: int, b2: int):
+    model = LinearRegression()
+    band_1, band_2 = hsi[:, :, b1], hsi[:, :, b2]
+    model.fit(band_1.reshape(-1, 1), band_2.reshape(-1, 1))
+
+    arr_1, arr_2 = band_1.ravel(), band_2.ravel()
+    a, b = model.coef_[0], model.intercept_
+    x = np.linspace(0, band_1.max(), 10)
+    y = a * x + b
+    r = np.corrcoef(arr_1, arr_2)[0, 1]
+    R = r**2
+    mean_elastic = a * band_1.mean() / band_2.mean()
+    beta = a * band_1.std() / band_2.std()
+    indx = np.random.choice(len(arr_1), len(arr_1)//10)
+    points_1 = np.around(arr_1[indx], 3).tolist()
+    points_2 = np.around(arr_2[indx], 3).tolist()
+    return {'b1': b1, 
+            'b2': b2, 
+            'x': x.tolist(), 
+            'y': y.tolist(), 
+            'a': round(float(a), 3), 
+            'b': round(float(b)),
+            'points_1': points_1,
+            'points_2': points_2,
+            'correlation': round(float(r), 3), 
+            'determination': round(float(R), 3), 
+            'elastic': round(float(mean_elastic), 3), 
+            'beta': round(float(beta), 3)}
 
 class Statistics:
 
