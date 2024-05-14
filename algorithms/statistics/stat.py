@@ -43,43 +43,43 @@ def get_stat_hsi(hsi, name: str, mode: str = 'hsi'):
             return res
             # return [entropy(np.unique(hsi[..., band], return_counts=True)[1]) for band in range(hsi.shape[-1])]
 
-    def get_max(data: np.ndarray, axis: tuple):
+    def get_max(data: np.ndarray, axis: tuple | None = None):
         mask = ~np.isnan(data) & (data != 0)
         return data.max(axis=axis, initial=-10, where=mask)
     
-    def get_min(data: np.ndarray, axis: tuple):
+    def get_min(data: np.ndarray, axis: tuple | None = None):
         mask = ~np.isnan(data) & (data != 0)
         return data.min(axis=axis, initial=10, where=mask)
     
-    def get_mean(data: np.ndarray, axis: tuple):
+    def get_mean(data: np.ndarray, axis: tuple | None = None):
         mask = ~np.isnan(data) & (data != 0)
         return data.mean(axis=axis, where=mask)
     
-    def get_std(data: np.ndarray, axis: tuple):
+    def get_std(data: np.ndarray, axis: tuple | None = None):
         mask = ~np.isnan(data) & (data != 0)
         return data.std(axis=axis, where=mask)
     
-    def get_scope(data: np.ndarray, axis: tuple):
+    def get_scope(data: np.ndarray, axis: tuple | None = None):
         return get_max(data, axis) - get_min(data, axis)
     
-    def get_median(data: np.ndarray, axis: tuple):
+    def get_median(data: np.ndarray, axis: tuple | None = None):
         mask = ~np.isnan(data) & (data != 0)
         data_without_zero = np.ma.array(data, mask=~mask)
         return np.ma.median(data_without_zero, axis=axis)
     
-    def get_q1(data: np.ndarray, axis: tuple):
+    def get_q1(data: np.ndarray, axis: tuple | None = None):
         mask = ~np.isnan(data) & (data != 0)
         data_without_zero = data.copy()
         data_without_zero[~mask] = np.nan
         return np.nanpercentile(data_without_zero, q=25, axis=axis)
     
-    def get_q3(data: np.ndarray, axis: tuple):
+    def get_q3(data: np.ndarray, axis: tuple | None = None):
         mask = ~np.isnan(data) & (data != 0)
         data_without_zero = data.copy()
         data_without_zero[~mask] = np.nan
         return np.nanpercentile(data_without_zero, q=75, axis=axis)
     
-    def get_iqr(data: np.ndarray, axis: tuple):
+    def get_iqr(data: np.ndarray, axis: tuple | None = None):
         return get_q3(data, axis) - get_q1(data, axis)
 
     stat_functions = {
