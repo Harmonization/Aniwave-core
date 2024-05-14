@@ -13,6 +13,8 @@ def correlation_matrix(hsi):
 
 def get_stat_value(data, stat_func, mode: str = 'hsi', round_n=3):
     # моды: hsi, matrix и поканальный
+    # data_without_null = data[data != 0]
+    # mask = (data != 0) & (~np.isnan(data))
     match mode:
         case 'hsi':
             return round(float(stat_func(data)), round_n)
@@ -26,23 +28,71 @@ def get_stat_value(data, stat_func, mode: str = 'hsi', round_n=3):
             return np.around(np.array(stat_func(data, axis=(0, 1))).astype(float), round_n).tolist()
 
 def get_stat_hsi(hsi, name: str, mode: str = 'hsi'):
+
     def get_entropy(hsi, axis=None):
         if axis is None:
-            return entropy(np.unique(hsi, return_counts=True)[1])
+            mask = ~np.isnan(hsi) & (hsi != 0)
+            return entropy(np.unique(hsi[mask], return_counts=True)[1])
         else:
-            return [entropy(np.unique(hsi[..., band], return_counts=True)[1]) for band in range(hsi.shape[-1])]
+            res = []
+            for band in range(hsi.shape[-1]):
+                channel = hsi[..., band]
+                mask = ~np.isnan(channel) & (channel != 0)
+                uniq = np.unique(channel[mask], return_counts=True)[1]
+                res.append(entropy(uniq))
+            return res
+            # return [entropy(np.unique(hsi[..., band], return_counts=True)[1]) for band in range(hsi.shape[-1])]
+
+    def get_max(data: np.ndarray, axis: tuple):
+        mask = ~np.isnan(data) & (data != 0)
+        return data.max(axis=axis, initial=-10, where=mask)
+    
+    def get_min(data: np.ndarray, axis: tuple):
+        mask = ~np.isnan(data) & (data != 0)
+        return data.min(axis=axis, initial=10, where=mask)
+    
+    def get_mean(data: np.ndarray, axis: tuple):
+        mask = ~np.isnan(data) & (data != 0)
+        return data.mean(axis=axis, where=mask)
+    
+    def get_std(data: np.ndarray, axis: tuple):
+        mask = ~np.isnan(data) & (data != 0)
+        return data.std(axis=axis, where=mask)
+    
+    def get_scope(data: np.ndarray, axis: tuple):
+        return get_max(data, axis) - get_min(data, axis)
+    
+    def get_median(data: np.ndarray, axis: tuple):
+        mask = ~np.isnan(data) & (data != 0)
+        data_without_zero = np.ma.array(data, mask=~mask)
+        return np.ma.median(data_without_zero, axis=axis)
+    
+    def get_q1(data: np.ndarray, axis: tuple):
+        mask = ~np.isnan(data) & (data != 0)
+        data_without_zero = data.copy()
+        data_without_zero[~mask] = np.nan
+        return np.nanpercentile(data_without_zero, q=25, axis=axis)
+    
+    def get_q3(data: np.ndarray, axis: tuple):
+        mask = ~np.isnan(data) & (data != 0)
+        data_without_zero = data.copy()
+        data_without_zero[~mask] = np.nan
+        return np.nanpercentile(data_without_zero, q=75, axis=axis)
+    
+    def get_iqr(data: np.ndarray, axis: tuple):
+        return get_q3(data, axis) - get_q1(data, axis)
 
     stat_functions = {
-        'max': np.max, 
-        'min': np.min, 
-        'mean': np.mean, 
-        'std': np.std, 
-        'scope': lambda data, axis=None: np.max(data, axis) - np.min(data, axis),
-        'iqr': lambda data, axis=None: np.subtract(*np.percentile(data, [75, 25], axis)),
+        'max': get_max, 
+        'min': get_min,
+        'mean': get_mean, 
+        'std': get_std, 
+        'scope': get_scope,
+        'iqr': get_iqr,
         'entropy': get_entropy,
-        'q1': partial(np.percentile, q=25),
-        'median': np.median,
-        'q3': partial(np.percentile, q=75)
+        'q1': get_q1,
+        'median': get_median,
+        'q3': get_q3
     }
     
     return get_stat_value(hsi, stat_functions[name], mode)
