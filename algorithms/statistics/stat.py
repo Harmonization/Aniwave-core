@@ -3,14 +3,25 @@ from sklearn.linear_model import LinearRegression
 from scipy.stats import entropy
 from functools import partial
 
+def mean_matrix(spectre: np.ndarray[float]) -> np.ndarray[float]:
+    x, y = np.meshgrid(spectre, spectre)
+    return np.fromfunction(lambda i, j: (x-y) / (x+y), (204, 204))
+
 def correlation_matrix(hsi):
     hsi_table = hsi.reshape(hsi.shape[0] * hsi.shape[1], hsi.shape[2]).T # shape = (204, N)
     return np.around(np.corrcoef(hsi_table), 3).tolist()
 
 def get_stat_value(data, stat_func, mode: str = 'hsi', round_n=3):
+    # моды: hsi, matrix и поканальный
     match mode:
         case 'hsi':
             return round(float(stat_func(data)), round_n)
+        case 'matrix':
+            # Находим поканальный массив признаков, и на его основе формируем матрицу
+            stat_arr = np.around(np.array(stat_func(data, axis=(0, 1))).astype(float), round_n)
+            mx = mean_matrix(stat_arr)
+            mx[np.isnan(mx)] = 0
+            return mx.tolist()
         case _:
             return np.around(np.array(stat_func(data, axis=(0, 1))).astype(float), round_n).tolist()
 

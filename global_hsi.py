@@ -5,6 +5,7 @@ import yadisk
 
 from loader import loader, download_from_path
 from parse import Parser
+import algorithms.statistics.stat as STAT
 
 class HSI:
     DATA_PATH = 'Data'
@@ -25,7 +26,23 @@ class HSI:
     def get_index(self, expr: str):
         self.parser(expr)
         channel = self.parser.channel(self.get())
-        return {'spectral_index': channel.tolist()}
+
+        stat_names = [
+            'max',
+            'min', 
+            'mean',
+            'std',
+            'scope',
+            'iqr',
+            'entropy',
+            'q1',
+            'median',
+            'q3'
+        ]
+
+        stat_hist = {name: float(np.around(STAT.get_stat_hsi(channel, name), 3).astype(float)) for name in stat_names}
+
+        return {'spectral_index': channel.tolist(), 'stat_index': stat_hist}
     
     def get_rgb(self):
         rgb = np.flip(np.around(self[70, 51, 18] * 255).astype(int), axis=0)
