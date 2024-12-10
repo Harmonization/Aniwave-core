@@ -3,3 +3,4 @@ frontend
 .env
 **/__pycache__/
 venv
+Data
