@@ -21,7 +21,7 @@ def exist_server():
 
 @app.get('/settings')
 def settings():
-    with open('Data/Settings/settings.json', 'r', encoding='utf-8') as settings_json:
+    with open('settings.json', 'r', encoding='utf-8') as settings_json:
         settings = json.load(settings_json)
 
     return settings
