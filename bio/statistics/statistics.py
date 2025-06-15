@@ -447,11 +447,11 @@ def idx_mx_info(hsi, name: str, startBand: int = 0, endBand: int = 203):
 
     mx = idx_matrix(signal)
     hist, bins = channel_hist(mx, zero_del=False)
-    data_dict['signal']['idx_mx'] = {'data': np.around(mx, 3).astype(float).tolist(), 'hist': hist.tolist(), 'bins': bins.tolist()}
+    data_dict['signal']['idx_mx'] = {'data': np.around(mx, 3).astype(float).tolist(), 'hist': np.around(hist, 3).tolist(), 'bins': bins.tolist()}
 
     mx = idx_matrix(diff)
     hist, bins = channel_hist(mx, zero_del=False)
-    data_dict['diff']['idx_mx'] = {'data': np.around(mx, 3).astype(float).tolist(), 'hist': hist.tolist(), 'bins': bins.tolist()}
+    data_dict['diff']['idx_mx'] = {'data': np.around(mx, 3).astype(float).tolist(), 'hist': np.around(hist, 3).tolist(), 'bins': bins.tolist()}
     
     return data_dict
 

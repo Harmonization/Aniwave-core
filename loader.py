@@ -4,11 +4,12 @@ import numpy as np
 import spectral.io.envi as envi
 from hsip.reader import open_TIF
 import yadisk
+from yadisk.sessions.requests_session import RequestsSession
 
 DATA_PATH = 'Data'
 MAIN_ROOT = 'Datasets and Program/HSI and TIR/Aniwave'
 TOKEN = 'y0_AgAAAAAsGvHOAApsKgAAAADrhnQx1pqpt1zjQPCSV28z1eLp1OYhH6g'
-y = yadisk.YaDisk(token=TOKEN)
+y = yadisk.YaDisk(token=TOKEN, session=RequestsSession())
 
 def download(path: str):
     filename = path.split('/')[-1]
@@ -23,6 +24,7 @@ def download(path: str):
 
 def open(name: str):
     # Открыть HSI
+    nm = np.array([]).astype(int)
     
     filename, filetype = name.split('.')
     if filetype == 'hdr':
@@ -34,12 +36,17 @@ def open(name: str):
     elif filetype == 'npy':
         path = f'Data/{filename}.npy'
         hsi = np.load(path)
+        
+        filename_nm = f'{filename}_nm.npy'
+        if filename_nm in os.listdir('Data'):
+            nm = np.load(f'Data/{filename_nm}')
+            print(nm)
 
     elif filetype == 'tif':
         path = f'Data/{filename}.tif'
         hsi = open_TIF(path).transpose(2,1,0)
 
-    return hsi
+    return hsi, nm
     
 def upload(data: np.ndarray, filename: str):
     np.save(filename, data)

@@ -2,6 +2,7 @@ import json, os
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+# from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 import getter
@@ -19,22 +20,46 @@ app.add_middleware(
 def exist_server():
     return
 
-@app.get('/settings')
-def settings():
-    with open('settings.json', 'r', encoding='utf-8') as settings_json:
-        settings = json.load(settings_json)
+# @app.get('/settings')
+# def settings():
+#     with open('settings.json', 'r', encoding='utf-8') as settings_json:
+#         settings = json.load(settings_json)
 
-    return settings
+#     return settings
+
+@app.get('/convert')
+def get_convert():
+    return getter.get_convert()
+
+@app.get('/save_convert')
+def save_convert():
+    return getter.save_convert()
 
 @app.get('/files')
-def get_files(filetypes: list[str] = ['npy', 'hdr', 'tif']):
+def get_files(filetypes: list[str] = ['npy', 'hdr', 'tif'], path: str = 'Data'):
     # Получить все загруженные файлы выбранных типов
-    files = [el for el in os.listdir('Data') if len(el.split('.')) > 1 and el.split('.')[-1] in filetypes]
+    if not os.path.isdir(path):
+        # Если директория не существует, создаем
+        os.makedirs(path)
+    
+    files = list(filter(lambda el: el.split('.')[-1] in filetypes, os.listdir(path)))
     return {'downloadedFiles': files}
+
+@app.get('/change_channels')
+def change_channels(channels_expr: str = '0-203'):
+    return getter.change_channels(channels_expr)
+
+@app.get('/change_roi')
+def change_roi(x0: int = 0, x1: int = 0, y0: int = 0, y1: int = 0):
+    return getter.change_roi(x0, x1, y0, y1)
+
+@app.get('/change_thr')
+def change_thr(thr_expr: str, lower: float, upper: float):
+    return getter.change_thr(thr_expr, lower, upper)
 
 @app.get('/open')
 def open_image(name: str):
-    return getter.open_hsi(name) | getter.get_rgb(name)
+    return getter.open_hsi(name) | getter.get_rgb()
 
 @app.get('/tir')
 def get_tir(name: str = '3.xlsx'):
@@ -51,72 +76,74 @@ def download_file(options: DownloadOptions):
     return
 
 @app.get('/signal')
-def get_sign(name_hsi: str, x: int, y: int, method: str = '', h: int = 5):
-    return getter.get_signal(name_hsi, y, x, method, h)
+def get_sign(x: int, y: int, method: str = '', h: int = 5):
+    return getter.get_signal(y, x, method, h)
 
 @app.get('/bands')
-def get_channel(name_hsi: str, expr: str):
-    return getter.get_indx(name_hsi, expr)
+def get_channel(expr: str):
+    # path_file = 'img1.png'
+    # return FileResponse(path_file)
+    return getter.get_indx(expr)
 
 @app.get('/idx_mx')
-def get_idx_mx(name_hsi: str, name: str, startBand: int = 0, endBand: int = 203):
-    return getter.get_idx_mx(name_hsi, name, startBand, endBand)
+def get_idx_mx(name: str, startBand: int = 0, endBand: int = 203):
+    return getter.get_idx_mx(name, startBand, endBand)
 
 @app.get('/regression')
-def get_regression(name_hsi: str, b1: int, b2: int):
-    return getter.get_regression(name_hsi, b1, b2)
+def get_regression(b1: int, b2: int):
+    return getter.get_regression(b1, b2)
 
 @app.get('/corr_mx')
-def get_corr_mx(name_hsi: str, startBand: int = 0, endBand: int = 203):
-    return getter.get_corr_mx(name_hsi, startBand, endBand)
+def get_corr_mx(startBand: int = 0, endBand: int = 203):
+    return getter.get_corr_mx(startBand, endBand)
 
 @app.get('/rgb')
-def get_rgb(name_hsi: str):
-    return getter.get_rgb(name_hsi)
+def get_rgb():
+    return getter.get_rgb()
 
 @app.get('/classes')
-def get_spectral_classes(name_hsi: str, method: str, x: int, y: int):
-    return getter.get_spectral_classes(name_hsi, method, x, y)
+def get_spectral_classes(method: str, x: int, y: int):
+    return getter.get_spectral_classes(method, x, y)
 
 @app.get('/clusters')
-def get_clusters(name_hsi: str, k: int, method: str):
-    return getter.get_clusters(name_hsi, k, method)
+def get_clusters(k: int, method: str):
+    return getter.get_clusters(k, method)
 
 @app.get('/clusters_2')
-def get_clusters_2(name_hsi: str, thr: float = .99, method: str = 'cosine', metrics: str = 'cosine'):
-    return getter.get_clusters_2(name_hsi, thr, method, metrics)
+def get_clusters_2(thr: float = .99, method: str = 'cosine', metrics: str = 'cosine'):
+    return getter.get_clusters_2(thr, method, metrics)
 
 @app.get('/clusters_corr')
-def get_cluster_corr(name_hsi: str, mode: str = 'centroids'):
-    return getter.get_cluster_corr(name_hsi, mode)
+def get_cluster_corr( mode: str = 'centroids'):
+    return getter.get_cluster_corr(mode)
 
 @app.get('/reley')
-def get_reley(name_hsi: str):
-    return getter.get_reley(name_hsi)
+def get_reley():
+    return getter.get_reley()
 
 @app.get('/sigma')
-def get_reley(name_hsi: str, sigma: int = 2):
-    return getter.get_sigma(name_hsi, sigma)
+def get_reley(sigma: int = 2):
+    return getter.get_sigma(sigma)
 
 @app.get('/rgb_synthesize')
-def get_rgb_synthesize(name_hsi: str, red: int = 70, green: int = 51, blue: int = 19, red_mode: int | None = None, green_mode: int | None = None, blue_mode: int | None = None):
-    return getter.get_rgb_synthesize(name_hsi, red, green, blue, red_mode, green_mode, blue_mode)
+def get_rgb_synthesize( red: int = 70, green: int = 51, blue: int = 19, red_mode: int | None = None, green_mode: int | None = None, blue_mode: int | None = None):
+    return getter.get_rgb_synthesize(red, green, blue, red_mode, green_mode, blue_mode)
 
 @app.get('/emd')
-def get_emd(name_hsi: str, number_of_modes: int = 8, windows_size: list[int] = [3, 3, 5]):
-    return getter.get_emd(name_hsi, number_of_modes, windows_size)
+def get_emd(number_of_modes: int = 8, windows_size: list[int] = [3, 3, 5]):
+    return getter.get_emd(number_of_modes, windows_size)
 
 @app.get('/emd_channel')
-def get_emd(name_hsi: str, n_mode: int = 0, n_band: int = 0):
-    return getter.get_emd_channel(name_hsi, n_mode, n_band)
+def get_emd(n_mode: int = 0, n_band: int = 0):
+    return getter.get_emd_channel(n_mode, n_band)
 
 @app.get('/endmembers')
-def get_endmembers(name_hsi: str, method: str, k: int):
-    return getter.get_endmembers(name_hsi, method, k)
+def get_endmembers(method: str, k: int):
+    return getter.get_endmembers(method, k)
 
 @app.get('/amaps')
-def get_amaps(name_hsi: str, method: str, endmembers: list = Query()):
-    return getter.get_amaps(name_hsi, method, endmembers)
+def get_amaps(method: str, endmembers: list = Query()):
+    return getter.get_amaps(method, endmembers)
 
 class Settings(BaseModel):
     channel: str
@@ -147,3 +174,13 @@ def save_settings(settings: Settings):
     except:
         result = 'Ошибка загрузки'
     return {'result': result}
+
+@app.get('/channel_story')
+def get_channel_story():
+    return getter.get_channel_story()
+
+if __name__ == '__main__':
+    import uvicorn
+    import webbrowser
+    webbrowser.open('https://harmonization.github.io/Aniwave/')
+    uvicorn.run(app, host='localhost', port=8000)

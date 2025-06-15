@@ -4,6 +4,7 @@ from sklearn.mixture import GaussianMixture
 
 from pysptools.abundance_maps.amaps import FCLS, UCLS, NNLS
 from pysptools.eea import NFINDR, PPI
+from pysptools.detection.detect import ACE, CEM, GLRT, MatchedFilter, OSP
 
 def clusters(hsi: np.ndarray, k: int, method: str):
     '''
@@ -184,6 +185,83 @@ def SCA(hsi, U):
         result.append(sca.reshape(rows, cols))
     return result
 
+def Chebychev(hsi, U):
+    '''
+    Реализация метода спектральной классификации по расстоянию Чебышева
+    (Spectral correlation angle method).
+
+    Параметры
+    ----------
+    hsi : np.ndarray
+        3D массив numpy размера `(n_rows, n_columns, n_bands)` содержащего ГСИ.
+    U : np.ndarray
+        Набор классов для вычисления расстояния относительно их.
+    
+    Возвращает
+    -------
+    list[np.ndarray]
+        Список результирующих карта расстояния от образца до остальных пикселей.
+    
+    Примеры
+    --------
+    >>> import numpy as np
+    >>> from bio.segmentation import Chebychev
+    >>> hsi = np.random.rand(100, 100, 204)  # имитирует ГСИ
+    >>> U = [np.random.rand(204)]  # имитирует спектр
+    >>> result = Chebychev(hsi, U)
+    >>> print(result[0].shape)
+    (100, 100)  # Карта расстояний
+    '''
+
+    rows, cols, bands = hsi.shape
+    hsi_table = hsi.reshape(rows*cols,bands)
+    result = []
+    for u in U:
+        res = np.max(hsi_table - u, axis=1)
+        res[np.isnan(res)] = 0
+
+        result.append(res.reshape(rows, cols))
+    return result
+
+def Detect(hsi, U, method):
+    '''
+    Реализация метода спектральной классификации по расстоянию Чебышева
+    (Spectral correlation angle method).
+
+    Параметры
+    ----------
+    hsi : np.ndarray
+        3D массив numpy размера `(n_rows, n_columns, n_bands)` содержащего ГСИ.
+    U : np.ndarray
+        Набор классов для вычисления расстояния относительно их.
+    
+    Возвращает
+    -------
+    list[np.ndarray]
+        Список результирующих карта расстояния от образца до остальных пикселей.
+    
+    Примеры
+    --------
+    >>> import numpy as np
+    >>> from bio.segmentation import Chebychev
+    >>> hsi = np.random.rand(100, 100, 204)  # имитирует ГСИ
+    >>> U = [np.random.rand(204)]  # имитирует спектр
+    >>> result = Chebychev(hsi, U)
+    >>> print(result[0].shape)
+    (100, 100)  # Карта расстояний
+    '''
+
+    rows, cols, bands = hsi.shape
+    hsi_table = hsi.reshape(rows*cols,bands)
+    result = []
+    for u in U:
+
+        res = method(hsi_table, u)
+        res[np.isnan(res)] = 0
+
+        result.append(res.reshape(rows, cols))
+    return result
+
 def spectral_classes(hsi: np.ndarray, method: str, x: int, y: int):
     '''
     Обертка над методами спектральной классификации для применения их к ГСИ 
@@ -216,8 +294,13 @@ def spectral_classes(hsi: np.ndarray, method: str, x: int, y: int):
     (100, 100)  # Карта расстояний
     '''
 
-    methods = {'sam': SAM, 'sid': SID, 'sca': SCA}
-    segmentation = methods[method](hsi, [hsi[y, x]])[0]
+    methods_distance = {'sam': SAM, 'sid': SID, 'sca': SCA, 'chebychev': Chebychev}
+    methods_detection = {'ace': ACE,'cem': CEM,'glrt': GLRT,'mf': MatchedFilter,'osp': OSP}
+
+    if method in methods_distance:
+        segmentation = methods_distance[method](hsi, [hsi[y, x]])[0]
+    else:
+        segmentation = Detect(hsi, [hsi[y, x]], methods_detection[method])[0]
     return segmentation
 
 def end_members(hsi: np.ndarray, method: str, k: int) -> list[tuple[int]]:

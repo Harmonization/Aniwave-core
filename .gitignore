@@ -4,4 +4,7 @@ frontend
 **/__pycache__/
 venv
 Data
-
+main.exe
+app.exe
+.vscode
+img1.png

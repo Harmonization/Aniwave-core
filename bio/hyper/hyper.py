@@ -24,7 +24,7 @@ hsi_filters = {'golay': savgol, 'nadarai': nadarai}
 
 #     return hsi
 
-def rgb(hsi: np.ndarray):
+def rgb(hsi: np.ndarray, bands: tuple = (70, 51, 18)):
     '''
     Синтез псевдо-RGB изображения для ГСИ растений снятых со спектрометра Specim IQ. 
     Красный зеленый и синий каналы заранее определены. 
@@ -52,7 +52,7 @@ def rgb(hsi: np.ndarray):
     >>> print(result.shape)
     (100, 100, 3)  # Example output
     '''
-    return np.flip(np.around(hsi[..., (70, 51, 18)] * 255).astype(int), axis=0)
+    return np.flip(np.around(hsi[..., bands] * 255).astype(int), axis=0)
 
 def signal(hsi: np.ndarray, i: int, j: int, method: str = '', h: int = 5):
     '''
@@ -134,6 +134,6 @@ def indx(hsi: np.ndarray, expr: str):
     >>> print(result['data']) # 2d array в формате питоновского списка
     '''
     channel = str2indx(hsi, expr)
-    return band_info(channel)
+    return band_info(channel), channel
 
 
