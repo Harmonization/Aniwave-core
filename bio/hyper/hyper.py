@@ -134,6 +134,6 @@ def indx(hsi: np.ndarray, expr: str):
     >>> print(result['data']) # 2d array в формате питоновского списка
     '''
     channel = str2indx(hsi, expr)
-    return band_info(channel), channel
+    return channel
 
 

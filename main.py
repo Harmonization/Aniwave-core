@@ -2,7 +2,7 @@ import json, os
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-# from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 import getter
@@ -35,6 +35,10 @@ def get_convert():
 def save_convert():
     return getter.save_convert()
 
+@app.get('/save_band')
+def save_band(expr: str = ''):
+    return getter.save_band(expr)
+
 @app.get('/files')
 def get_files(filetypes: list[str] = ['npy', 'hdr', 'tif'], path: str = 'Data'):
     # Получить все загруженные файлы выбранных типов
@@ -59,7 +63,7 @@ def change_thr(thr_expr: str, lower: float, upper: float):
 
 @app.get('/open')
 def open_image(name: str):
-    return getter.open_hsi(name) | getter.get_rgb()
+    return getter.open_hsi(name) #| getter.get_rgb()
 
 @app.get('/tir')
 def get_tir(name: str = '3.xlsx'):
@@ -85,9 +89,27 @@ def get_channel(expr: str):
     # return FileResponse(path_file)
     return getter.get_indx(expr)
 
+@app.get('/bands_png')
+def get_channel_png(expr: str, t: float = 0, condition: str = ''):
+    getter.get_indx(expr, t, condition)
+    path_file = 'Data/band_0.png'
+    return FileResponse(path_file)
+
+@app.get('/rgb')
+def get_tir():
+    getter.get_rgb()
+    path_file = 'Data/rgb.png'
+    return FileResponse(path_file)
+
+@app.get('/hist')
+def get_hist():
+    return getter.get_hist()
+
 @app.get('/idx_mx')
-def get_idx_mx(name: str, startBand: int = 0, endBand: int = 203):
-    return getter.get_idx_mx(name, startBand, endBand)
+def get_idx_mx(name: str):
+    getter.get_idx_mx(name)
+    path_file = 'Data/mx_0.png'
+    return FileResponse(path_file)
 
 @app.get('/regression')
 def get_regression(b1: int, b2: int):
@@ -107,7 +129,9 @@ def get_spectral_classes(method: str, x: int, y: int):
 
 @app.get('/clusters')
 def get_clusters(k: int, method: str):
-    return getter.get_clusters(k, method)
+    res = getter.get_clusters(k, method)
+    path_file = 'Data/segmentation.png'
+    return FileResponse(path_file)
 
 @app.get('/clusters_2')
 def get_clusters_2(thr: float = .99, method: str = 'cosine', metrics: str = 'cosine'):

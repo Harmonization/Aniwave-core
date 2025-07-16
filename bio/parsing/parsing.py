@@ -134,8 +134,8 @@ def str2indx(hsi: np.ndarray, string: str) -> np.ndarray:
     # Вычислить спектральный индекс определяемый выражением (string) над выбранным HSI 
 
     bands, function = str2expr(string)
-    spectral_indx = expr2channel(hsi, bands, function)#.copy()
-    # spectral_indx[np.isnan(spectral_indx) | np.isinf(spectral_indx)] = 0
+    spectral_indx = expr2channel(hsi, bands, function).copy()
+    spectral_indx[np.isnan(spectral_indx) | np.isinf(spectral_indx)] = 0
     return spectral_indx
 
 nm = [

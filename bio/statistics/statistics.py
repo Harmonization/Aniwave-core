@@ -28,7 +28,11 @@ def channel_hist(channel: np.ndarray, bins: int = 20, around: bool = True, zero_
     '''
 
     # Гистограмма
-    array1d = channel[channel != 0] if zero_del else channel.ravel()
+    array1d = np.copy(channel[channel != 0] if zero_del else channel.ravel())
+    q5, q95 = np.percentile(array1d, (5, 95))
+    array1d[array1d < q5] = 0
+    array1d[array1d > q95] = 0
+    
     hist, bins = np.histogram(array1d, bins=bins)
     if around: bins = np.around(bins.astype(float), 2)
     return hist, bins
@@ -386,7 +390,7 @@ def band_info(band: np.ndarray, zero_del: bool = True):
     hist, bins = channel_hist(band, zero_del=zero_del)
     feature_dict['hist'] = hist.tolist()
     feature_dict['bins'] = bins.tolist()
-    feature_dict['data'] = np.around(band, 3).tolist()
+    # feature_dict['data'] = np.around(band, 3).tolist()
     
     return feature_dict
 
@@ -412,7 +416,7 @@ def idx_matrix(spectre: np.ndarray[float]) -> np.ndarray[float]:
     mx[np.isnan(mx) | np.isinf(mx)] = 0
     return mx
 
-def idx_mx_info(hsi, name: str, startBand: int = 0, endBand: int = 203):
+def idx_mx_info(hsi, name: str):
     '''
     Быстрое вычисление статистического спектра (содержащего статистику каждого
     канала в отдельности) и его спектрограммы, а также вычисляет их статистические
@@ -424,10 +428,6 @@ def idx_mx_info(hsi, name: str, startBand: int = 0, endBand: int = 203):
         3D массив numpy размера `(n_rows, n_columns, n_bands)` содержащего гиперспектральный данные.
     name : str
         Название вычисляемого статистического признака.
-    startBand : int
-        Начало выбранного диапазона каналов для расчета. 
-    endBand : int
-        Конец выбранного диапазона каналов для расчета. 
     
     Возвращает
     -------
@@ -437,23 +437,25 @@ def idx_mx_info(hsi, name: str, startBand: int = 0, endBand: int = 203):
     '''
 
     feature = func_dict[name]
-    data = hsi[..., startBand: endBand + 1]
+    # data = hsi[..., startBand: endBand + 1]
 
-    sign = np.array(feature(data, axis=(0, 1))).astype(float)
+    sign = np.array(feature(hsi, axis=(0, 1))).astype(float)
     data_dict = sign_info(sign)
 
     signal = data_dict['signal']['sign']
-    diff = data_dict['diff']['sign']
+    # diff = data_dict['diff']['sign']
 
     mx = idx_matrix(signal)
-    hist, bins = channel_hist(mx, zero_del=False)
-    data_dict['signal']['idx_mx'] = {'data': np.around(mx, 3).astype(float).tolist(), 'hist': np.around(hist, 3).tolist(), 'bins': bins.tolist()}
+    # hist, bins = channel_hist(mx, zero_del=False)
+    # data_dict['signal']['idx_mx'] = {'hist': np.around(hist, 3).tolist(), 'bins': bins.tolist()}
+    # data_dict['hist'] = np.around(hist, 3).tolist()
+    # data_dict['bins'] = bins.tolist()
 
-    mx = idx_matrix(diff)
-    hist, bins = channel_hist(mx, zero_del=False)
-    data_dict['diff']['idx_mx'] = {'data': np.around(mx, 3).astype(float).tolist(), 'hist': np.around(hist, 3).tolist(), 'bins': bins.tolist()}
+    # mx = idx_matrix(diff)
+    # hist, bins = channel_hist(mx, zero_del=False)
+    # data_dict['diff']['idx_mx'] = {'data': np.around(mx, 3).astype(float).tolist(), 'hist': np.around(hist, 3).tolist(), 'bins': bins.tolist()}
     
-    return data_dict
+    return data_dict | band_info(mx, zero_del=False), np.around(mx, 3).astype(float)
 
 def regression(hsi: np.ndarray, b1: int, b2: int):
     '''

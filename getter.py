@@ -1,8 +1,12 @@
 # Выдача данных упакованных в словари, готовых для отправки к клиенту
 
 import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import cv2
+import pandas as pd
 
-from bio.hyper import rgb, signal, indx, convert_hsi, open_explorer
+from bio.hyper import rgb, signal, indx, convert_hsi, open_explorer, save_explorer
 from bio.thermal import open_tir
 from bio.statistics import channel_hist, idx_mx_info, regression, corr_mx, band_info
 from bio.segmentation import clusters, spectral_classes, end_members, abundance_maps
@@ -27,10 +31,12 @@ def apply_changes():
     '''
 
     hsi = opened_hsi['input']
-
+    mask = opened_hsi['mask']
+    
     if 'roi' in opened_hsi:
         x0, x1, y0, y1 = opened_hsi['roi']
-        hsi = hsi[x0: x1, y0: y1]
+        hsi = hsi[y0: y1, x0: x1]
+        mask = mask[y0: y1, x0: x1]
 
     slice_lst = []
     channels_lst = opened_hsi['channels_scope']
@@ -43,23 +49,49 @@ def apply_changes():
     
     hsi = np.dstack(slice_lst)
 
-    if opened_hsi['thr_expr']:
-        lower = opened_hsi['lower']
-        upper = opened_hsi['upper']
-        thr_expr = opened_hsi['thr_expr']
-        channel = channel_story[thr_expr]
-        if 'roi' in opened_hsi: channel = channel[x0: x1, y0: y1]
-        hsi[(channel < lower) | (upper > channel)] = 0
+    # if 'thr_expr' in opened_hsi and opened_hsi['thr_expr']:
+    #     lower = opened_hsi['lower']
+    #     upper = opened_hsi['upper']
+    #     thr_expr = opened_hsi['thr_expr']
+    #     channel = channel_story[thr_expr]
+    #     if 'roi' in opened_hsi: channel = channel[x0: x1, y0: y1]
+    #     hsi[(channel < lower) | (upper > channel)] = 0
+
+    # Маска
+    hsi[mask == 0] = 0
 
     opened_hsi['hsi'] = hsi
     print(opened_hsi['hsi'].shape)
+
+def save_band(expr: str = ''):
+    channel = channel_story[expr]
+    # result_dct = opened_hsi['hist']
+
+    # Заголовок спектрограммы
+    header_table = True
+    nm = None
+
+    if 'raw_nm' in opened_hsi: 
+        nm = opened_hsi['raw_nm']
+    
+    elif 'nm' in opened_hsi:
+        nm = opened_hsi['nm']
+        
+    if not (nm is None) and channel.shape[1] == len(nm):
+        header_table = nm
+
+    path = save_explorer(expr.replace('/', ' делить на '))
+    print(path)
+    if path:
+        with pd.ExcelWriter(''.join(path), engine='openpyxl') as writer:
+            pd.DataFrame(channel).to_excel(writer, sheet_name='Индекс', header=header_table)
 
 def get_convert():
     '''
     Функция для открытия проводника, открытия HSI и конвертации в массив np.array
     '''
     path = open_explorer()
-    hsi, nm, rgb_bands = convert_hsi(path)
+    hsi, nm, waves, rgb_bands = convert_hsi(path)
     print(hsi.shape)
     
     name = path.split('/')[-1].split('.')[0]
@@ -68,10 +100,13 @@ def get_convert():
         opened_hsi['input'] = hsi
         opened_hsi['hsi'] = hsi
         opened_hsi['nm'] = nm
+        opened_hsi['raw_nm'] = waves
         opened_hsi['channels_scope'] = [(0, hsi.shape[2])]
         opened_hsi['lower'] = -100000
         opened_hsi['upper'] = 100000
         opened_hsi['thr_expr'] = ''
+
+        opened_hsi['mask'] = (np.zeros(hsi.shape[:2]) + 255).astype(np.uint8)
 
     # rgb_dct = get_rgb()
     return {'name': name, 'count_bands': hsi.shape[2], 'nm': nm.tolist(), 'rows': hsi.shape[0], 'cols': hsi.shape[1]} #| rgb_dct
@@ -176,6 +211,8 @@ def open_hsi(name: str):
         opened_hsi['hsi'] = hsi
         opened_hsi['nm'] = nm
         opened_hsi['channels_scope'] = [(0, hsi.shape[2])]
+
+        opened_hsi['mask'] = (np.zeros(hsi.shape[:2]) + 255).astype(np.uint8)
         
     return {'name': name, 'count_bands': hsi.shape[2], 'nm': nm.tolist(), 'rows': hsi.shape[0], 'cols': hsi.shape[1]}
 
@@ -219,8 +256,13 @@ def get_clusters(k: int, method: str):
 
     hsi = opened_hsi['hsi']
     segmentation = clusters(hsi, k, method)
-    hist, bins = channel_hist(segmentation, bins=np.unique(segmentation), around=False, zero_del=False)
-    return {'segmentation': segmentation.tolist(), 'hist': hist.tolist(), 'bins': bins.tolist()}
+    # hist, bins = channel_hist(segmentation, bins=np.unique(segmentation), around=False, zero_del=False)
+    opened_hsi['hist'] = band_info(segmentation, zero_del=False) #{'hist': hist.tolist(), 'bins': bins.tolist()}
+
+    cb = cv2.applyColorMap((segmentation * 50).astype(np.uint8), cv2.COLORMAP_JET)
+    cv2.imwrite('Data/segmentation.png', cb)
+
+    # return {'segmentation': segmentation.tolist(), 'hist': hist.tolist(), 'bins': bins.tolist()}
 
 def get_clusters_2(thr: float = .99, method: str = 'cosine', metrics: str = 'cosine'):
     '''
@@ -506,23 +548,23 @@ def get_amaps(method: str, endmembers: list[list[int]]):
         
     return {'amaps': data_maps}
 
-def get_rgb(bands: tuple = (70, 51, 18)):
-    '''
-    Получение простого RGB изображения над выбранным ГСИ и форматирование 
-    результатов для передачи на сторону клиента. (Для снимков снятых со спектрографа 
-    Specim IQ).
+# def get_rgb(bands: tuple = (70, 51, 18)):
+#     '''
+#     Получение простого RGB изображения над выбранным ГСИ и форматирование 
+#     результатов для передачи на сторону клиента. (Для снимков снятых со спектрографа 
+#     Specim IQ).
 
-    Параметры
-    ----------
+#     Параметры
+#     ----------
     
-    Возвращает
-    -------
-    dict
-        Словарь с синтезированным RGB изображением.
-    '''
+#     Возвращает
+#     -------
+#     dict
+#         Словарь с синтезированным RGB изображением.
+#     '''
 
-    hsi = opened_hsi['hsi']
-    return {'rgb' : rgb(hsi, bands).tolist()}
+#     hsi = opened_hsi['hsi']
+#     return {'rgb' : rgb(hsi, bands).tolist()}
 
 def get_signal(i: int, j: int, method: str = '', h: int = 5):
     '''
@@ -546,10 +588,10 @@ def get_signal(i: int, j: int, method: str = '', h: int = 5):
         Словарь с полученным массивом содержащим спектральную сигнатуру.
     '''
 
-    hsi = opened_hsi['hsi']
+    hsi = opened_hsi['input']
     return signal(hsi, i, j, method, h)
 
-def get_indx(expr: str):
+def get_indx(expr: str, t : float = 0, condition: str = ''):
     '''
     Получение спектрального индекса над ГСИ по произвольному математическому выражению над выбранным 
     ГСИ и форматирование результатов для передачи на сторону клиента.
@@ -558,6 +600,8 @@ def get_indx(expr: str):
     ----------
     expr : str
         Математической выражение в виде строки.
+    t    : float
+        Нижний порог маски
     
     Возвращает
     -------
@@ -566,11 +610,51 @@ def get_indx(expr: str):
     '''
 
     hsi = opened_hsi['input']
-    result_dct, channel = indx(hsi, expr)
+    channel = indx(hsi, expr)
     channel_story[expr] = channel
-    return result_dct
+    
 
-def get_idx_mx(name: str, startBand: int = 0, endBand: int = 203):
+    cmap = cv2.COLORMAP_JET
+    scale_channel = (channel * 255).astype(np.uint8)
+
+    cb = cv2.applyColorMap(scale_channel, cmap)
+
+    if condition: 
+        scale_t = t * 255
+        alpha = scale_channel.copy()
+
+        if condition == 'lower':
+            alpha[scale_channel > scale_t] = 0
+            alpha[scale_channel <= scale_t] = 255
+        else:
+            alpha[scale_channel <= scale_t] = 0
+            alpha[scale_channel > scale_t] = 255
+        opened_hsi['mask'] = alpha
+        apply_changes()
+    
+    alpha = opened_hsi['mask']
+
+    # Вычислявем гистограмму маскированного канала
+    channel_masked = channel.copy()
+    channel_masked[alpha == 0] = 0
+    opened_hsi['hist'] = band_info(channel_masked, zero_del=True)
+    
+    bgr = cv2.split(cb)
+    rgba = bgr + (alpha,)
+    cv2.imwrite('Data/band_0.png', cv2.merge(rgba))
+    # return result_dct
+
+def get_hist():
+    return opened_hsi['hist']
+
+def get_rgb(bands: tuple = (70, 51, 18)):
+    hsi = opened_hsi['input']
+    rgb = hsi[..., bands]
+    scale_rgb = (rgb * 255).astype(np.uint8)
+    cv2.imwrite('Data/rgb.png', scale_rgb)
+    return
+
+def get_idx_mx(name: str):
     '''
     Получение статистического спектра и его спектрограммы (в виде матрицы) над выбранным 
     ГСИ и форматирование результатов для передачи на сторону клиента.
@@ -579,10 +663,6 @@ def get_idx_mx(name: str, startBand: int = 0, endBand: int = 203):
     ----------
     name : str
         Название статистического признака.
-    startBand : int
-        Начала учитываемого диапазона каналов.
-    endBand : int
-        Конец учитываемого диапазона каналов.
     
     Возвращает
     -------
@@ -592,7 +672,23 @@ def get_idx_mx(name: str, startBand: int = 0, endBand: int = 203):
     '''
 
     hsi = opened_hsi['hsi']
-    return idx_mx_info(hsi, name, startBand, endBand)
+    print(hsi.shape)
+    # mask = opened_hsi['mask']
+    # hsi[mask == 0] = 0
+    
+    res, mx = idx_mx_info(hsi, name)
+    channel_story[name] = mx
+    opened_hsi['hist'] = res
+
+    # mx = res['signal']['idx_mx']['data']
+    # mx = cv2.inRange(mx, -1, 1)
+    mx_masked = mx.copy()
+    mx_masked[mx < -1] = -1
+    mx_masked[mx > 1] = 1
+
+    cb = cv2.applyColorMap(((mx_masked - mx_masked.min())/(mx_masked.max() - mx_masked.min())*255).astype(np.uint8), cv2.COLORMAP_JET)
+    cv2.imwrite('Data/mx_0.png', cb)
+    # return idx_mx_info(hsi, name, startBand, endBand)
 
 def get_regression(b1: int, b2: int):
     '''
